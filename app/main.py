@@ -123,7 +123,12 @@ def create_token(data: dict) -> str:
 
 # ===================================== Endpoints =================================
 
-@app.post("/signup", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/signup",
+    response_model=UserRead, 
+    status_code=status.HTTP_201_CREATED,
+    tags=["Sign-Up"],
+    )
 def signup(user_data: UserCreate, session: Session = Depends(get_session)):
     statement = select(User).where(User.name == user_data.name)
     existing_user = session.exec(statement).first()
@@ -140,7 +145,7 @@ def signup(user_data: UserCreate, session: Session = Depends(get_session)):
     session.refresh(db_user)
     return db_user
 
-@app.post("/login")
+@app.post("/login",tags=["Login"])
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Session = Depends(get_session),
@@ -182,12 +187,12 @@ def verify_token(
 class Userout(SQLModel):
     id: int
 
-@app.get("/users/me", response_model=Userout)
+@app.get("/users/me", response_model=Userout,tags=["User"])
 def get_me(current_user: Annotated[User, Depends(verify_token)]):
     return current_user
 
 
-@app.post("/category/", response_model=CatRead)
+@app.post("/category/", response_model=CatRead,tags=["Category"])
 def create_category(
     current_user: Annotated[User, Depends(verify_token)],
     cat_data: CatCreate,
@@ -200,7 +205,7 @@ def create_category(
     return db_cat
 
 
-@app.get("/category/", response_model=List[CatRead])
+@app.get("/category/", response_model=List[CatRead],tags=["Category"])
 def get_category(
     current_user: Annotated[User, Depends(verify_token)],
     session: Session = Depends(get_session),
@@ -216,6 +221,7 @@ def get_category(
     "/transactions",
     response_model=TransRead,
     status_code=status.HTTP_201_CREATED,
+    tags=["Transaction"],
 )
 def create_transaction(
     current_user: Annotated[User, Depends(verify_token)],
@@ -230,7 +236,7 @@ def create_transaction(
     session.refresh(db_trans)
     return db_trans
 
-@app.get("/transaction/",response_model=List[TransRead])
+@app.get("/transaction/",response_model=List[TransRead],tags=["Transaction"])
 def get_transaction(
     current_user: Annotated[User, Depends(verify_token)],
     session:Session = Depends(get_session)):
@@ -243,7 +249,7 @@ def get_transaction(
         )
     return transaction
 
-@app.get("/transaction/{tid}",response_model=TransRead)
+@app.get("/transaction/{tid}",response_model=TransRead,tags=["Transaction"])
 def get_trans_by_id(
     tid:int,
     current_user: Annotated[User, Depends(verify_token)],
@@ -260,3 +266,25 @@ def get_trans_by_id(
             detail="No data exist"
         )
     return transaction
+
+@app.delete("/transaction/{tid}",tags=["Transaction"])
+def del_transaction(
+    tid:int,
+    current_user: Annotated[User, Depends(verify_token)],
+    session:Session = Depends(get_session)
+):
+    statement = select(Transaction).where(
+        Transaction.user_id == current_user.id,
+        Transaction.id == tid,
+    )
+    transaction = session.exec(statement).first()
+    if not transaction:
+        raise HTTPException(
+            status_code=400,
+            detail="This type of data is not exist"
+        )
+    session.delete(transaction)
+    session.commit()
+    return{
+        "ok" : True
+    }
