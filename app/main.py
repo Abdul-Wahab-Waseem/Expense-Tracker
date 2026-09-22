@@ -84,7 +84,7 @@ class Transaction(TransBase, table=True):
 
 class TransRead(TransBase):
     id: int
-    user_id: int | None  # Fixed: Allowed Optional/None to match database model
+    user_id: int | None
 
 
 class TransCreate(TransBase):
@@ -229,3 +229,34 @@ def create_transaction(
     session.commit()
     session.refresh(db_trans)
     return db_trans
+
+@app.get("/transaction/",response_model=List[TransRead])
+def get_transaction(
+    current_user: Annotated[User, Depends(verify_token)],
+    session:Session = Depends(get_session)):
+    statement = select(Transaction).where(Transaction.user_id == current_user.id)
+    transaction = session.exec(statement)
+    if not transaction:
+        raise HTTPException(
+            status_code=400,
+            detail="No data exist"
+        )
+    return transaction
+
+@app.get("/transaction/{tid}",response_model=TransRead)
+def get_trans_by_id(
+    tid:int,
+    current_user: Annotated[User, Depends(verify_token)],
+    session:Session = Depends(get_session)
+    ):
+    statement = select(Transaction).where(
+        Transaction.user_id == current_user.id,
+        Transaction.id == tid,
+        )
+    transaction = session.exec(statement).first()
+    if not transaction:
+        raise HTTPException(
+            status_code=400,
+            detail="No data exist"
+        )
+    return transaction
