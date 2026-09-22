@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated,List
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -42,6 +42,19 @@ class UserRead(UserBase):
 
 class UserCreate(UserBase):
     password: str  # Plaintext password from user input
+
+# Category Entity
+class CatBase(SQLModel):
+    categories: str
+
+class Category(CatBase,table = True):
+    id: int | None = Field(default=None,primary_key=True)
+
+class CatRead(CatBase):
+    id: int
+
+class CatCreate(CatBase):
+    categories: str
 
 # ===================================== JWT & OAuth Config =================================
 app = FastAPI(lifespan=lifespan)
@@ -133,3 +146,26 @@ class Userout(SQLModel):
 @app.get("/users/me", response_model=Userout)
 def get_me(current_user: Annotated[User, Depends(verify_token)]):
     return current_user
+
+@app.post("/category/",response_model=CatRead)
+def create_category(current_user: Annotated[User, Depends(verify_token)],cat_data:CatCreate,session:Session = Depends(get_session)):
+    db_cat = Category.model_validate(cat_data)
+    if not db_cat:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid inputs"
+        )
+    session.add(db_cat)
+    session.commit()
+    session.refresh(db_cat)
+    return db_cat
+
+@app.get("/category/",response_model=List[CatRead])
+def get_category(current_user: Annotated[User, Depends(verify_token)],session:Session = Depends(get_session)):
+    category = session.exec(select(Category)).all()
+    if not category:
+        raise HTTPException(
+            status_code=400,
+            detail="no data exist"
+        )
+    return category
